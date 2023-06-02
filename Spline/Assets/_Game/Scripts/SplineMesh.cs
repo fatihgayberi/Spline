@@ -13,7 +13,6 @@ namespace Wonnasmith.Spline
         public bool isMeshRebuild;
 
         [SerializeField] private float width;
-        [SerializeField] private float angleOffset;
 
         private MeshFilter _splineMeshFilter;
         private MeshRenderer _splineMeshRenderer;

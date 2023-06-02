@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -128,20 +127,64 @@ namespace Wonnasmith.Spline
             }
         }
 
-        private Vector3 BernsteinPositionCalculator(List<NodeController> transformList, float percent)
+        public Vector3 BernsteinPositionCalculator(float percent)
         {
             Vector3 bernsteinPos = Vector3.zero;
-            int n = transformList.Count - 1;
+            int n = _nodeList.Count - 1;
 
-            if (percent <= 0) return transformList[0].transform.position;
-            if (percent >= 1) return transformList[n].transform.position;
+            if (percent <= 0) return _nodeList[0].transform.position;
+            if (percent >= 1) return _nodeList[n].transform.position;
 
-            for (int v = 0; v < transformList.Count; v++)
+            for (int v = 0; v < _nodeList.Count; v++)
             {
-                bernsteinPos += transformList[v].transform.position * WonnaMathf.WonnaBernstein(n, v, percent);
+                bernsteinPos += _nodeList[v].transform.position * WonnaMathf.WonnaBernstein(n, v, percent);
             }
 
             return bernsteinPos;
+        }
+
+        private void PositionListUpdate()
+        {
+            if (_nodeList == null) return;
+            if (_nodeList.Count == 0) return;
+
+            if (_nodeList == null)
+            {
+                _nodeList = new List<NodeController>();
+            }
+
+            float temp = 0;
+
+            _posList.Clear();
+
+            float splinePercentRate = t / (pointCount - 1);
+
+            while (temp < t)
+            {
+                temp = Mathf.Clamp(temp, 0, t);
+
+                _posList.Add(BernsteinPositionCalculator(temp));
+
+                temp += splinePercentRate;
+
+                if (temp + splinePercentRate > t)
+                {
+                    break;
+                }
+            }
+
+            _posList.Add(BernsteinPositionCalculator(t));
+        }
+
+        protected Vector3 GetPointTangent(Vector3 p1, Vector3 p2)
+        {
+            Vector3 n = p2 - p1;
+
+            n.Normalize();
+
+            Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
+
+            return rotation * n;
         }
 
         private void DrawLineTest()
@@ -166,50 +209,6 @@ namespace Wonnasmith.Spline
             }
         }
 
-        private void PositionListUpdate()
-        {
-            if (_nodeList == null) return;
-            if (_nodeList.Count == 0) return;
-
-            if (_nodeList == null)
-            {
-                _nodeList = new List<NodeController>();
-            }
-
-            float temp = 0;
-
-            _posList.Clear();
-
-            float splinePercentRate = t / (pointCount - 1);
-
-            while (temp < t)
-            {
-                temp = Mathf.Clamp(temp, 0, t);
-
-                _posList.Add(BernsteinPositionCalculator(_nodeList, temp));
-
-                temp += splinePercentRate;
-
-                if (temp + splinePercentRate > t)
-                {
-                    break;
-                }
-            }
-
-            _posList.Add(BernsteinPositionCalculator(_nodeList, t));
-        }
-
-        protected Vector3 GetPointTangent(Vector3 p1, Vector3 p2)
-        {
-            Vector3 n = p2 - p1;
-
-            n.Normalize();
-
-            Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
-
-            return rotation * n;
-        }
-
         private void DrawPointTangent()
         {
             Color prevColor = Gizmos.color;
@@ -231,8 +230,24 @@ namespace Wonnasmith.Spline
             Gizmos.color = prevColor;
         }
 
+        private void DrawNodePoint()
+        {
+            Color prevColor = Gizmos.color;
+            Gizmos.color = Color.yellow;
+
+            foreach (var item in _nodeList)
+            {
+                Gizmos.DrawSphere(item.transform.position, 0.5f);
+            }
+
+            Gizmos.color = prevColor;
+        }
+
+
         private void OnDrawGizmos()
         {
+            DrawNodePoint();
+
             DrawLineTest();
 
             PositionListUpdate();
