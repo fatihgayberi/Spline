@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using WonnasmithEditor;
 
@@ -13,11 +12,8 @@ namespace Wonnasmith.Spline
         [Space(20), Button(nameof(MeshRebuild))]
         public bool isMeshRebuild;
 
-        private List<NodeController> _nodeList1;
-        private List<NodeController> _nodeList2;
-
-        private List<Vector3> _posList1;
-        private List<Vector3> _posList2;
+        [SerializeField] private float width;
+        [SerializeField] private float angleOffset;
 
         private MeshFilter _splineMeshFilter;
         private MeshRenderer _splineMeshRenderer;
@@ -35,7 +31,7 @@ namespace Wonnasmith.Spline
 
         private void MeshGenerator()
         {
-            if (_posList1 == null | _posList2 == null) return;
+            if (_posList == null) return;
 
             if (_splineMeshFilter == null)
             {
@@ -52,13 +48,25 @@ namespace Wonnasmith.Spline
             _splineMeshFilter.mesh = _mesh = new Mesh();
             _mesh.name = _meshName;
 
-            _vertices = new Vector3[_posList1.Count * 2];
-            _triangles = new int[((_posList1.Count * 2) - 2) * 3];
+            _vertices = new Vector3[_posList.Count * 2];
+            _triangles = new int[((_posList.Count * 2) - 2) * 3];
+            
+            Vector3 normal;
 
             for (int si = 0, vi = 0; vi < _vertices.Length; si++, vi += 2)
             {
-                _vertices[vi] = _posList1[si] - transform.position;
-                _vertices[vi + 1] = _posList2[si] - transform.position;
+                if (si + 1 < _posList.Count)
+                {
+                    normal = GetPointTangent(_posList[si], _posList[si + 1]);
+
+                }
+                else
+                {
+                    normal = GetPointTangent(_posList[si - 1], _posList[si]);
+                }
+
+                _vertices[vi] = _posList[si] - normal * (width / 2);
+                _vertices[vi + 1] = _posList[si] + normal * (width / 2);
             }
 
             int x = 0;
@@ -111,50 +119,6 @@ namespace Wonnasmith.Spline
                     }
                 }
             }
-        }
-
-        public override void NodeGenerator()
-        {
-            NodeGenerator(transform, _nodeList1);
-            NodeGenerator(transform, _nodeList2);
-        }
-
-        public override void NodeClear()
-        {
-            NodeClear(_nodeList1, _posList1);
-            NodeClear(_nodeList2, _posList2);
-        }
-
-        public override void OnNodeDeleteButtonClick(NodeController nodeController)
-        {
-            int nodeIndex;
-
-            if (_nodeList1.Contains(nodeController))
-            {
-                nodeIndex = _nodeList1.IndexOf(nodeController);
-
-                OnNodeDeleteButtonClick(nodeController, _nodeList1);
-                OnNodeDeleteButtonClick(_nodeList2[nodeIndex], _nodeList2);
-            }
-            else if (_nodeList2.Contains(nodeController))
-            {
-                nodeIndex = _nodeList2.IndexOf(nodeController);
-
-                OnNodeDeleteButtonClick(nodeController, _nodeList2);
-                OnNodeDeleteButtonClick(_nodeList1[nodeIndex], _nodeList1);
-            }
-        }
-
-        public void OnDrawGizmos()
-        {
-            DrawLineTest(_nodeList1);
-            DrawLineTest(_nodeList2);
-
-            PositionListUpdate(_nodeList1, _posList1);
-            PositionListUpdate(_nodeList2, _posList2);
-
-            DrawPointTest(_posList1);
-            DrawPointTest(_posList2);
         }
     }
 }

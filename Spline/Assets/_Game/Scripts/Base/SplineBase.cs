@@ -23,14 +23,14 @@ namespace Wonnasmith.Spline
         [Space(20), SerializeField][Min(1)] private int pointCount;
         [SerializeField, Range(0, 1)] private float t;
 
+        [SerializeField] private float tangentGizmoLength;
+
         private GameObject _nodePrefab;
         private const string _nodeName = "NODE_";
         private const string _nodePrefabPath = "NodePrefab/NODE";
 
-        public abstract void NodeGenerator();
-        public abstract void NodeClear();
-        public abstract void OnNodeDeleteButtonClick(NodeController nodeController);
-
+        public List<NodeController> _nodeList = new List<NodeController>();
+        public List<Vector3> _posList = new List<Vector3>();
 
         private void OnEnable()
         {
@@ -45,28 +45,28 @@ namespace Wonnasmith.Spline
             NodeController.NodeDeleteButtonClick -= OnNodeDeleteButtonClick;
         }
 
-        protected void OnNodeDeleteButtonClick(NodeController nodeController, List<NodeController> nodeList)
+        protected void OnNodeDeleteButtonClick(NodeController nodeController)
         {
             if (EditorApplication.isPlaying) return;
             if (nodeController == null) return;
-            if (nodeList == null) return;
+            if (_nodeList == null) return;
 
-            if (nodeList.Contains(nodeController))
+            if (_nodeList.Contains(nodeController))
             {
-                nodeList.Remove(nodeController);
+                _nodeList.Remove(nodeController);
                 DestroyImmediate(nodeController.gameObject);
             }
 
-            AllNodeRename(nodeList);
+            AllNodeRename();
         }
 
-        protected void NodeGenerator(Transform parent, List<NodeController> nodeList)
+        public void NodeGenerator()
         {
             if (EditorApplication.isPlaying) return;
 
-            if (nodeList == null)
+            if (_nodeList == null)
             {
-                nodeList = new List<NodeController>();
+                _nodeList = new List<NodeController>();
             }
 
             if (_nodePrefab == null)
@@ -83,48 +83,48 @@ namespace Wonnasmith.Spline
             newNode.transform.position = transform.position;
             newNode.name = _nodeName;
             newNode.SetActive(true);
-            newNode.transform.SetParent(parent);
+            newNode.transform.SetParent(transform);
 
             NodeController nodeController = newNode.GetComponent<NodeController>();
 
-            nodeList.Add(nodeController);
+            _nodeList.Add(nodeController);
 
-            AllNodeRename(nodeList);
+            AllNodeRename();
         }
 
-        protected void NodeClear(List<NodeController> nodeList, List<Vector3> posList)
+        protected void NodeClear()
         {
             if (EditorApplication.isPlaying) return;
-            if (nodeList == null) return;
-            if (nodeList.Count == 0) return;
+            if (_nodeList == null) return;
+            if (_nodeList.Count == 0) return;
 
-            for (int i = 0; i < nodeList.Count; i++)
+            for (int i = 0; i < _nodeList.Count; i++)
             {
-                if (nodeList[i] == null) continue;
+                if (_nodeList[i] == null) continue;
 
-                if (nodeList[i].gameObject != null)
+                if (_nodeList[i].gameObject != null)
                 {
-                    DestroyImmediate(nodeList[i].gameObject);
+                    DestroyImmediate(_nodeList[i].gameObject);
                 }
             }
 
-            nodeList.Clear();
+            _nodeList.Clear();
 
-            if (posList != null)
+            if (_posList != null)
             {
-                posList.Clear();
+                _posList.Clear();
             }
 
             transform.position = Vector3.zero;
         }
 
-        protected void AllNodeRename(List<NodeController> nodeList)
+        protected void AllNodeRename()
         {
-            if (nodeList == null) return;
+            if (_nodeList == null) return;
 
-            for (int i = 0; i < nodeList.Count; i++)
+            for (int i = 0; i < _nodeList.Count; i++)
             {
-                nodeList[i].name = _nodeName + i;
+                _nodeList[i].name = _nodeName + i;
             }
         }
 
@@ -132,7 +132,7 @@ namespace Wonnasmith.Spline
         {
             Vector3 bernsteinPos = Vector3.zero;
             int n = transformList.Count - 1;
-            
+
             if (percent <= 0) return transformList[0].transform.position;
             if (percent >= 1) return transformList[n].transform.position;
 
@@ -144,49 +144,49 @@ namespace Wonnasmith.Spline
             return bernsteinPos;
         }
 
-        protected void DrawLineTest(List<NodeController> nodeList)
+        private void DrawLineTest()
         {
-            if (nodeList == null) return;
+            if (_nodeList == null) return;
 
             Gizmos.color = Color.white;
 
-            for (int i = 0; i < nodeList.Count - 1; i++)
+            for (int i = 0; i < _nodeList.Count - 1; i++)
             {
-                Gizmos.DrawLine(nodeList[i].transform.position, nodeList[i + 1].transform.position);
+                Gizmos.DrawLine(_nodeList[i].transform.position, _nodeList[i + 1].transform.position);
             }
         }
 
-        protected void DrawPointTest(List<Vector3> posList)
+        private void DrawPointTest()
         {
             Gizmos.color = Color.red;
 
-            foreach (var item in posList)
+            foreach (var item in _posList)
             {
                 Gizmos.DrawSphere(item, 0.3f);
             }
         }
 
-        protected void PositionListUpdate(List<NodeController> nodeList, List<Vector3> posList)
+        private void PositionListUpdate()
         {
-            if (nodeList == null) return;
-            if (nodeList.Count == 0) return;
+            if (_nodeList == null) return;
+            if (_nodeList.Count == 0) return;
 
-            if (nodeList == null)
+            if (_nodeList == null)
             {
-                nodeList = new List<NodeController>();
+                _nodeList = new List<NodeController>();
             }
 
             float temp = 0;
 
-            posList.Clear();
+            _posList.Clear();
 
-            float splinePercentRate = t / pointCount;
+            float splinePercentRate = t / (pointCount - 1);
 
             while (temp < t)
             {
                 temp = Mathf.Clamp(temp, 0, t);
 
-                posList.Add(BernsteinPositionCalculator(nodeList, temp));
+                _posList.Add(BernsteinPositionCalculator(_nodeList, temp));
 
                 temp += splinePercentRate;
 
@@ -196,7 +196,50 @@ namespace Wonnasmith.Spline
                 }
             }
 
-            posList.Add(BernsteinPositionCalculator(nodeList, t));
+            _posList.Add(BernsteinPositionCalculator(_nodeList, t));
+        }
+
+        protected Vector3 GetPointTangent(Vector3 p1, Vector3 p2)
+        {
+            Vector3 n = p2 - p1;
+
+            n.Normalize();
+
+            Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
+
+            return rotation * n;
+        }
+
+        private void DrawPointTangent()
+        {
+            Color prevColor = Gizmos.color;
+            Gizmos.color = Color.blue;
+
+            for (int i = 0; i < _posList.Count - 1; i++)
+            {
+                Vector3 n = _posList[i + 1] - _posList[i];
+
+                n.Normalize();
+
+                Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
+
+                Vector3 rotatedVector = rotation * n;
+
+                Gizmos.DrawLine(_posList[i] - rotatedVector * tangentGizmoLength / 2, _posList[i] + rotatedVector * tangentGizmoLength / 2);
+            }
+
+            Gizmos.color = prevColor;
+        }
+
+        private void OnDrawGizmos()
+        {
+            DrawLineTest();
+
+            PositionListUpdate();
+
+            DrawPointTest();
+
+            DrawPointTangent();
         }
     }
 }
