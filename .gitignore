@@ -9,6 +9,7 @@
 /**/[Bb]uilds
 /**/[Ll]ogs
 /**/[Mm]emoryCaptures
+/**/[Uu]ser[Ss]ettings
 
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 #!/[Aa]ssets/**/*.meta
@@ -22,6 +23,9 @@
 # Visual Studio cache directory
 /.vs/
 
+# VS Code editor config
+/**/.vscode/
+
 # Gradle cache directory
 .gradle/
 
@@ -31,6 +35,7 @@
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -68,3 +73,6 @@
 .Trashes
 ehthumbs.db
 [Tt]humbs.db
+
+# Claude Code project rules (local only, not committed)
+CLAUDE.md
