@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEditor;
 
@@ -10,9 +11,21 @@ namespace WonnasmithEditor
         {
             var helpBoxAttribute = attribute as HelpBoxAttribute;
             if (helpBoxAttribute == null) return base.GetHeight();
-            var helpBoxStyle = (GUI.skin != null) ? GUI.skin.GetStyle("helpbox") : null;
-            if (helpBoxStyle == null) return base.GetHeight();
-            return Mathf.Max(40f, helpBoxStyle.CalcHeight(new GUIContent(helpBoxAttribute.text), EditorGUIUtility.currentViewWidth) + 4);
+
+            try
+            {
+                return Mathf.Max(40f, EditorStyles.helpBox.CalcHeight(new GUIContent(helpBoxAttribute.text), EditorGUIUtility.currentViewWidth) + 4);
+            }
+            catch (ArgumentException)
+            {
+                // UI Toolkit tabanli Inspector, GetHeight()'i bir OnGUI cagrisi disinda
+                // (property binding sirasinda) da tetikleyebiliyor; bu durumda hicbir
+                // GUI fonksiyonu cagrilamiyor, bu yuzden metin uzunluguna gore tahmini bir yukseklik donuyoruz.
+                const float charsPerLine = 60f;
+                const float lineHeight = 14f;
+                int lines = Mathf.Max(1, Mathf.CeilToInt(helpBoxAttribute.text.Length / charsPerLine));
+                return Mathf.Max(40f, lines * lineHeight + 16f);
+            }
         }
 
         public override void OnGUI(Rect position)
