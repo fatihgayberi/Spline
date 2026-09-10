@@ -153,9 +153,15 @@ namespace Wonnasmith.Spline
                 _nodeList = new List<NodeController>();
             }
 
-            float temp = 0;
-
             _posList.Clear();
+
+            if (pointCount <= 1)
+            {
+                _posList.Add(BernsteinPositionCalculator(t));
+                return;
+            }
+
+            float temp = 0;
 
             float splinePercentRate = t / (pointCount - 1);
 
@@ -211,20 +217,18 @@ namespace Wonnasmith.Spline
 
         private void DrawPointTangent()
         {
+            if (_posList.Count < 2) return;
+
             Color prevColor = Gizmos.color;
             Gizmos.color = Color.blue;
 
-            for (int i = 0; i < _posList.Count - 1; i++)
+            for (int i = 0; i < _posList.Count; i++)
             {
-                Vector3 n = _posList[i + 1] - _posList[i];
+                Vector3 tangent = (i + 1 < _posList.Count)
+                    ? GetPointTangent(_posList[i], _posList[i + 1])
+                    : GetPointTangent(_posList[i - 1], _posList[i]);
 
-                n.Normalize();
-
-                Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
-
-                Vector3 rotatedVector = rotation * n;
-
-                Gizmos.DrawLine(_posList[i] - rotatedVector * tangentGizmoLength / 2, _posList[i] + rotatedVector * tangentGizmoLength / 2);
+                Gizmos.DrawLine(_posList[i] - tangent * tangentGizmoLength / 2, _posList[i] + tangent * tangentGizmoLength / 2);
             }
 
             Gizmos.color = prevColor;
