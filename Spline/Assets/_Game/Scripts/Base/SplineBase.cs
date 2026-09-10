@@ -182,15 +182,25 @@ namespace Wonnasmith.Spline
             _posList.Add(BernsteinPositionCalculator(t));
         }
 
-        protected Vector3 GetPointTangent(Vector3 p1, Vector3 p2)
+        protected Vector3 GetTangent(Vector3 p1, Vector3 p2)
         {
-            Vector3 n = p2 - p1;
+            Vector3 tangent = p2 - p1;
 
-            n.Normalize();
+            tangent.Normalize();
 
+            return tangent;
+        }
+
+        protected Vector3 GetBinormal(Vector3 p1, Vector3 p2)
+        {
             Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
 
-            return rotation * n;
+            return rotation * GetTangent(p1, p2);
+        }
+
+        protected Vector3 GetNormal(Vector3 p1, Vector3 p2)
+        {
+            return Vector3.Cross(GetTangent(p1, p2), GetBinormal(p1, p2)).normalized;
         }
 
         private void DrawLineTest()
@@ -215,7 +225,7 @@ namespace Wonnasmith.Spline
             }
         }
 
-        private void DrawPointTangent()
+        private void DrawBinormal()
         {
             if (_posList.Count < 2) return;
 
@@ -224,11 +234,30 @@ namespace Wonnasmith.Spline
 
             for (int i = 0; i < _posList.Count; i++)
             {
-                Vector3 tangent = (i + 1 < _posList.Count)
-                    ? GetPointTangent(_posList[i], _posList[i + 1])
-                    : GetPointTangent(_posList[i - 1], _posList[i]);
+                Vector3 binormal = (i + 1 < _posList.Count)
+                    ? GetBinormal(_posList[i], _posList[i + 1])
+                    : GetBinormal(_posList[i - 1], _posList[i]);
 
-                Gizmos.DrawLine(_posList[i] - tangent * tangentGizmoLength / 2, _posList[i] + tangent * tangentGizmoLength / 2);
+                Gizmos.DrawLine(_posList[i] - binormal * tangentGizmoLength / 2, _posList[i] + binormal * tangentGizmoLength / 2);
+            }
+
+            Gizmos.color = prevColor;
+        }
+
+        private void DrawNormal()
+        {
+            if (_posList.Count < 2) return;
+
+            Color prevColor = Gizmos.color;
+            Gizmos.color = Color.green;
+
+            for (int i = 0; i < _posList.Count; i++)
+            {
+                Vector3 normal = (i + 1 < _posList.Count)
+                    ? GetNormal(_posList[i], _posList[i + 1])
+                    : GetNormal(_posList[i - 1], _posList[i]);
+
+                Gizmos.DrawLine(_posList[i], _posList[i] + normal * tangentGizmoLength);
             }
 
             Gizmos.color = prevColor;
@@ -258,7 +287,9 @@ namespace Wonnasmith.Spline
 
             DrawPointTest();
 
-            DrawPointTangent();
+            DrawBinormal();
+
+            DrawNormal();
         }
     }
 }

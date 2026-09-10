@@ -50,22 +50,22 @@ namespace Wonnasmith.Spline
             _vertices = new Vector3[_posList.Count * 2];
             _triangles = new int[((_posList.Count * 2) - 2) * 3];
             
-            Vector3 normal;
+            Vector3 binormal;
 
             for (int si = 0, vi = 0; vi < _vertices.Length; si++, vi += 2)
             {
                 if (si + 1 < _posList.Count)
                 {
-                    normal = GetPointTangent(_posList[si], _posList[si + 1]);
+                    binormal = GetBinormal(_posList[si], _posList[si + 1]);
 
                 }
                 else
                 {
-                    normal = GetPointTangent(_posList[si - 1], _posList[si]);
+                    binormal = GetBinormal(_posList[si - 1], _posList[si]);
                 }
 
-                _vertices[vi] = _posList[si] - normal * (width / 2);
-                _vertices[vi + 1] = _posList[si] + normal * (width / 2);
+                _vertices[vi] = _posList[si] - binormal * (width / 2);
+                _vertices[vi + 1] = _posList[si] + binormal * (width / 2);
             }
 
             int x = 0;
