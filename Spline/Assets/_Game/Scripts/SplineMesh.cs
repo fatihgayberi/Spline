@@ -108,13 +108,13 @@ namespace Wonnasmith.Spline
             {
                 _splineMeshRenderer = GetComponent<MeshRenderer>();
 
-                if (_splineMeshRenderer.material == null)
+                if (_splineMeshRenderer.sharedMaterial == null)
                 {
                     _defaultSplineMaterial = Resources.Load(_splineMeshMaterialPath, typeof(Material)) as Material;
 
                     if (_defaultSplineMaterial != null)
                     {
-                        _splineMeshRenderer.material = _defaultSplineMaterial;
+                        _splineMeshRenderer.sharedMaterial = _defaultSplineMaterial;
                     }
                 }
             }
