@@ -22,8 +22,6 @@ namespace Wonnasmith.Spline
         [Space(20), SerializeField][Min(1)] private int pointCount;
         [SerializeField, Range(0, 1)] private float t;
 
-        [SerializeField] private float tangentGizmoLength;
-
         private GameObject _nodePrefab;
         private const string _nodeName = "NODE_";
         private const string _nodePrefabPath = "NodePrefab/NODE";
@@ -215,22 +213,130 @@ namespace Wonnasmith.Spline
             }
         }
 
+        private readonly List<(Vector3 position, Action draw)> _gizmoDrawQueue = new List<(Vector3, Action)>();
+
+        private void QueueGizmo(Vector3 position, Action draw)
+        {
+            _gizmoDrawQueue.Add((position, draw));
+        }
+
+        private void FlushGizmoQueue()
+        {
+            if (_gizmoDrawQueue.Count == 0) return;
+
+            Camera cam = Camera.current;
+
+            if (cam != null)
+            {
+                Vector3 camPos = cam.transform.position;
+                _gizmoDrawQueue.Sort((a, b) =>
+                    (b.position - camPos).sqrMagnitude.CompareTo((a.position - camPos).sqrMagnitude));
+            }
+
+            Color prevColor = Gizmos.color;
+            Matrix4x4 prevMatrix = Gizmos.matrix;
+
+            foreach (var (_, draw) in _gizmoDrawQueue)
+            {
+                draw();
+            }
+
+            Gizmos.color = prevColor;
+            Gizmos.matrix = prevMatrix;
+
+            _gizmoDrawQueue.Clear();
+        }
+
         private void DrawPointTest()
         {
-            Gizmos.color = Color.red;
-
             foreach (var item in _posList)
             {
-                Gizmos.DrawSphere(item, 0.3f);
+                Vector3 pos = item;
+
+                QueueGizmo(pos, () =>
+                {
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawSphere(pos, SplineGizmoSettings.SamplePointRadius);
+                });
             }
+        }
+
+        private static Mesh _arrowHeadMesh;
+
+        private static Mesh GetArrowHeadMesh()
+        {
+            if (_arrowHeadMesh != null) return _arrowHeadMesh;
+
+            const int segments = 10;
+            const float baseRadius = 0.5f;
+
+            Vector3[] vertices = new Vector3[segments + 2];
+            vertices[0] = Vector3.zero;
+            vertices[segments + 1] = new Vector3(0f, 0f, -1f);
+
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / segments;
+                vertices[i + 1] = new Vector3(Mathf.Cos(angle) * baseRadius, Mathf.Sin(angle) * baseRadius, -1f);
+            }
+
+            int[] triangles = new int[segments * 3 * 4];
+            int t = 0;
+
+            for (int i = 0; i < segments; i++)
+            {
+                int current = i + 1;
+                int next = (i + 1) % segments + 1;
+
+                triangles[t++] = 0;
+                triangles[t++] = current;
+                triangles[t++] = next;
+
+                triangles[t++] = 0;
+                triangles[t++] = next;
+                triangles[t++] = current;
+
+                triangles[t++] = segments + 1;
+                triangles[t++] = current;
+                triangles[t++] = next;
+
+                triangles[t++] = segments + 1;
+                triangles[t++] = next;
+                triangles[t++] = current;
+            }
+
+            _arrowHeadMesh = new Mesh
+            {
+                name = "SplineArrowHeadMesh",
+                vertices = vertices,
+                triangles = triangles
+            };
+            _arrowHeadMesh.RecalculateNormals();
+            _arrowHeadMesh.RecalculateBounds();
+
+            return _arrowHeadMesh;
+        }
+
+        private void DrawArrow(Vector3 origin, Vector3 direction, Color color, float length)
+        {
+            Vector3 tip = origin + direction * length;
+            Vector3 mid = (origin + tip) / 2f;
+
+            QueueGizmo(mid, () =>
+            {
+                Gizmos.color = color;
+                Gizmos.DrawLine(origin, tip);
+
+                Gizmos.matrix = Matrix4x4.TRS(tip, Quaternion.LookRotation(direction), Vector3.one * SplineGizmoSettings.ArrowHeadSize);
+                Gizmos.DrawMesh(GetArrowHeadMesh());
+                Gizmos.matrix = Matrix4x4.identity;
+            });
         }
 
         private void DrawBinormal()
         {
+            if (!SplineGizmoSettings.ShowBinormal) return;
             if (_posList.Count < 2) return;
-
-            Color prevColor = Gizmos.color;
-            Gizmos.color = Color.blue;
 
             for (int i = 0; i < _posList.Count; i++)
             {
@@ -238,18 +344,15 @@ namespace Wonnasmith.Spline
                     ? GetBinormal(_posList[i], _posList[i + 1])
                     : GetBinormal(_posList[i - 1], _posList[i]);
 
-                Gizmos.DrawLine(_posList[i] - binormal * tangentGizmoLength / 2, _posList[i] + binormal * tangentGizmoLength / 2);
+                DrawArrow(_posList[i], binormal, Color.blue, SplineGizmoSettings.GizmoLength / 2);
+                DrawArrow(_posList[i], -binormal, Color.blue, SplineGizmoSettings.GizmoLength / 2);
             }
-
-            Gizmos.color = prevColor;
         }
 
         private void DrawNormal()
         {
+            if (!SplineGizmoSettings.ShowNormal) return;
             if (_posList.Count < 2) return;
-
-            Color prevColor = Gizmos.color;
-            Gizmos.color = Color.green;
 
             for (int i = 0; i < _posList.Count; i++)
             {
@@ -257,39 +360,39 @@ namespace Wonnasmith.Spline
                     ? GetNormal(_posList[i], _posList[i + 1])
                     : GetNormal(_posList[i - 1], _posList[i]);
 
-                Gizmos.DrawLine(_posList[i], _posList[i] + normal * tangentGizmoLength);
+                DrawArrow(_posList[i], normal, Color.green, SplineGizmoSettings.GizmoLength);
             }
-
-            Gizmos.color = prevColor;
         }
 
         private void DrawNodePoint()
         {
-            Color prevColor = Gizmos.color;
-            Gizmos.color = Color.yellow;
-
             foreach (var item in _nodeList)
             {
-                Gizmos.DrawSphere(item.transform.position, 0.5f);
+                Vector3 pos = item.transform.position;
+
+                QueueGizmo(pos, () =>
+                {
+                    Gizmos.color = Color.yellow;
+                    Gizmos.DrawSphere(pos, SplineGizmoSettings.NodePointRadius);
+                });
             }
-
-            Gizmos.color = prevColor;
         }
-
 
         private void OnDrawGizmos()
         {
-            DrawNodePoint();
-
             DrawLineTest();
 
             PositionListUpdate();
+
+            DrawNodePoint();
 
             DrawPointTest();
 
             DrawBinormal();
 
             DrawNormal();
+
+            FlushGizmoQueue();
         }
     }
 }
